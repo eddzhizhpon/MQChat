@@ -25,7 +25,6 @@ public class Main {
 			
 			UIManager.LookAndFeelInfo[] lafInfo = UIManager.getInstalledLookAndFeels();
 			for (int i = 0; i < lafInfo.length; i++) {
-				System.out.println("[INFO] " + lafInfo[i].getClassName());
 				if (lafInfo[i].getClassName().toString().equals("com.sun.java.swing.plaf.gtk.GTKLookAndFeel")) {
 					
 					themeName = "com.sun.java.swing.plaf.gtk.GTKLookAndFeel";

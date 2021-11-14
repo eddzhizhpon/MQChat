@@ -13,14 +13,6 @@ import java.awt.event.WindowEvent;
 import javax.jms.JMSException;
 import javax.jms.MapMessage;
 import javax.jms.Message;
-import javax.jms.MessageListener;
-import javax.jms.Topic;
-import javax.jms.TopicConnection;
-import javax.jms.TopicConnectionFactory;
-import javax.jms.TopicPublisher;
-import javax.jms.TopicSession;
-import javax.jms.TopicSubscriber;
-import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -32,7 +24,10 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
-public class Chat extends JFrame implements ActionListener{
+import ec.edu.ups.controller.ActiveMQController;
+import ec.edu.ups.controller.MessageListenerEvent;
+
+public class Chat extends JFrame implements ActionListener, MessageListenerEvent{
 
 	/**
 	 * 
@@ -47,14 +42,7 @@ public class Chat extends JFrame implements ActionListener{
 	
 	private String username;
 	
-	private InitialContext initialContext = null;
-	private TopicConnectionFactory connectionFactory;
-	private TopicConnection connection = null;
-	private TopicPublisher publisher;
-	private TopicSubscriber subscriber;
-	private TopicSession session;
-	private Topic topic;
-	
+	private ActiveMQController activeMQController;
 	
 	public Chat() throws JMSException, NamingException {
 		this.initComponent();
@@ -157,7 +145,7 @@ public class Chat extends JFrame implements ActionListener{
 			}
 		});
 		
-		this.setTitle("MQChat - " + this.username);
+		this.setTitle("MQChat");
 		this.setVisible(true);
 		
 	}
@@ -169,6 +157,7 @@ public class Chat extends JFrame implements ActionListener{
 			return false;
 		}
 		this.username = username;
+		this.setTitle("MQChat - " + this.username);
 		try {
 			this.activeMQ();
 			this.jbLogin.setActionCommand("logout");
@@ -187,43 +176,33 @@ public class Chat extends JFrame implements ActionListener{
 	}
 	
 	private boolean logout() {
-		if (connection != null) {
-			try {
-				connection.close();
-				this.jbLogin.setActionCommand("login");
-				this.jbLogin.setText("Iniciar Sesión");
-				this.jtfMessage.setEnabled(false);
-				this.jtaHistorialChat.setText("");
-				this.jtfUsername.setText("");
-				this.jtfUsername.setEnabled(true);
-			} catch (JMSException e) {
-				e.printStackTrace();
-				return false;
-			}
+		try {
+			if (this.activeMQController == null) return true;
+			this.activeMQController.logout();;
+			this.jbLogin.setActionCommand("login");
+			this.jbLogin.setText("Iniciar Sesión");
+			this.jtfMessage.setEnabled(false);
+			this.jtaHistorialChat.setText("");
+			this.jtfUsername.setText("");
+			this.jtfUsername.setEnabled(true);
+			this.setTitle("MQChat");
+		} catch (JMSException e) {
+			e.printStackTrace();
+			return false;
 		}
 		return true;
 	}
 	
 	private void sendMessage() {
-		MapMessage map;
-		
 		try {
-			String destination = this.jtfDestinationUsername.getText();
+			String destinationUsername = this.jtfDestinationUsername.getText();
 			String message = this.jtfMessage.getText();
 			
-			if (destination == null || message == null) return;
+			if (destinationUsername == null || message == null) return;
 			
-			if (!destination.isEmpty() && !message.isEmpty()) {
+			if (!destinationUsername.isEmpty() && !message.isEmpty()) {
 				
-				map = session.createMapMessage();
-				map.setString("sender", this.username);
-				map.setString("destination", destination);
-				map.setString("message", message);
-				
-				publisher.publish(map);
-				
-				this.jtaHistorialChat.append(this.username + ": " + message + "\n");
-				this.jtfMessage.setText("");
+				this.activeMQController.sendMeessageToDestination(destinationUsername, message);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -231,58 +210,7 @@ public class Chat extends JFrame implements ActionListener{
 	}
 	
 	private void activeMQ() throws JMSException, NamingException {
-		
-		// Step 1. Create an initial context to perform the JNDI lookup.
-		initialContext = new InitialContext();
-
-		// Step 2. Look-up the JMS topic
-		topic = (Topic) initialContext.lookup("topic/chat");
-
-		// Step 3. Look-up the JMS Topic connection factory
-		connectionFactory = (TopicConnectionFactory) initialContext.lookup("ConnectionFactory");
-
-		// Step 4. Create a JMS Topic connection
-		connection = connectionFactory.createTopicConnection();
-		
-		// Step 5. Set an client id to persist in time
-		connection.setClientID(this.username);
-
-		// Step 6. Set the client-id on the connection
-		connection.start();
-
-		// step 7. Create Topic session
-		session = connection.createTopicSession(false, TopicSession.AUTO_ACKNOWLEDGE);
-
-		// step 8. Create publisher
-		publisher = session.createPublisher(topic);
-		
-		// step 9. Create a durable subscriber to receive messages 
-		subscriber = session.createDurableSubscriber(topic, "durableSubscriber");
-		// publisher.setDeliveryMode(DeliveryMode.PERSISTENT);
-
-		// Step 10. Set a message listener to 
-		subscriber.setMessageListener(new MessageListener() {
-			public void onMessage(Message message) {
-				onMessageToDestination(message);
-			}
-		});
-	}
-	
-	private void onMessageToDestination(Message message) {
-		if (message instanceof MapMessage) {
-			MapMessage map = (MapMessage) message;
-			try {
-				String sender = map.getString("sender");
-				String destination = map.getString("destination");
-				String messageText = map.getString("message");
-				
-				if (destination.equals(this.username))
-					this.jtaHistorialChat.append(" > " +sender + ": " + messageText + "\n");
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-		
+		activeMQController = new ActiveMQController(username, this);
 	}
 
 	@Override
@@ -299,5 +227,25 @@ public class Chat extends JFrame implements ActionListener{
 			break;
 		}
 		
+	}
+
+	@Override
+	public void onMeesage(Message message) {
+		if (message instanceof MapMessage) {
+			MapMessage map = (MapMessage) message;
+			try {
+				String sender = map.getString("sender");
+				String messageText = map.getString("message");
+				this.jtaHistorialChat.append(" > " +sender + ": " + messageText + "\n");
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	@Override
+	public void onSend(String message) {
+		this.jtaHistorialChat.append(this.username + ": " + message + "\n");
+		this.jtfMessage.setText("");
 	}
 }
