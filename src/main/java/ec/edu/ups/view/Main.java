@@ -2,21 +2,41 @@ package ec.edu.ups.view;
 
 import javax.jms.JMSException;
 import javax.naming.NamingException;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
 
 public class Main {
 
 	public static void main(String[] args) {
-		Chat chat;
+		
+		Main.applyLookAndFeel();
 		try {
-			chat = new Chat();
-			chat.setVisible(true);
+			new Chat();
 		} catch (JMSException e) {
 			e.printStackTrace();
 		} catch (NamingException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
  	}
+	
+	private static void applyLookAndFeel() {
+		String themeName = UIManager.getSystemLookAndFeelClassName();
+		try {
+			
+			UIManager.LookAndFeelInfo[] lafInfo = UIManager.getInstalledLookAndFeels();
+			for (int i = 0; i < lafInfo.length; i++) {
+				System.out.println("[INFO] " + lafInfo[i].getClassName());
+				if (lafInfo[i].getClassName().toString().equals("com.sun.java.swing.plaf.gtk.GTKLookAndFeel")) {
+					
+					themeName = "com.sun.java.swing.plaf.gtk.GTKLookAndFeel";
+				}
+			}
+			System.out.println("[INFO] Applaing: " + themeName);
+			UIManager.setLookAndFeel(themeName);
+		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException
+				| UnsupportedLookAndFeelException e) {
+			e.printStackTrace();
+		}
+	}
 
 }
