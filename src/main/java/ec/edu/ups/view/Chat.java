@@ -1,7 +1,7 @@
 package ec.edu.ups.view;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -22,7 +22,6 @@ import javax.jms.TopicSession;
 import javax.jms.TopicSubscriber;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -62,6 +61,8 @@ public class Chat extends JFrame implements ActionListener{
 	}
 	
 	private void initComponent() throws JMSException, NamingException {
+		
+		this.setMinimumSize(new Dimension(500, 500));
 		
 		JPanel mainPanel = new JPanel(new BorderLayout());
 		
@@ -141,8 +142,6 @@ public class Chat extends JFrame implements ActionListener{
 		
 		
 		this.getContentPane().add(mainPanel, BorderLayout.CENTER);
-		mainPanel.setBorder(BorderFactory.createLineBorder(Color.RED));
-		this.pack();
 		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		
 		this.addWindowListener(new WindowAdapter() {
@@ -177,9 +176,11 @@ public class Chat extends JFrame implements ActionListener{
 			this.jtfMessage.setEnabled(true);
 			this.jtfUsername.setEnabled(false);
 		} catch (JMSException | NamingException e) {
-			JOptionPane.showMessageDialog(null, "Error", "No se pudo iniciar sesión", 
+			JOptionPane.showMessageDialog(null, 
+					"No se pudo iniciar sesión", 
+					"Error", 
 					JOptionPane.ERROR_MESSAGE);
-			e.printStackTrace();
+			System.out.println(e.getMessage());
 			return false;
 		}
 		return true;
